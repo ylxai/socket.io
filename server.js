@@ -13,8 +13,7 @@ class ZeaburSocketIOServer {
     this.app = express();
     this.server = createServer(this.app);
     this.port = process.env.PORT || 8080;
-    this.jwtSecret = process.env.JWT_SECRET || 'hafiportrait-secret-key';
-    
+    this.jwtSecret = process.env.JWT_SECRET || 'HafiPortrait2024SecretKey_SocketIO_Zeabur_Production_123456789';
     // Initialize Socket.IO with CORS configuration
     this.io = new Server(this.server, {
       cors: {
