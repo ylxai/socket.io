@@ -1,36 +1,3 @@
-# HafiPortrait Socket.IO Server - Zeabur Deployment
-
-Socket.IO server yang dioptimalkan untuk deployment di Zeabur.com dengan fitur real-time notifications untuk aplikasi HafiPortrait Photography.
-
-## 🚀 Quick Deploy ke Zeabur
-
-### 1. Push ke GitHub
-```bash
-# Clone atau copy folder ini ke repository GitHub baru
-git init
-git add .
-git commit -m "Initial Socket.IO server for Zeabur"
-git branch -M main
-git remote add origin https://github.com/username/hafiportrait-socketio.git
-git push -u origin main
-```
-
-### 2. Deploy di Zeabur
-1. Login ke [Zeabur.com](https://zeabur.com)
-2. Klik "New Project"
-3. Connect GitHub repository
-4. Pilih repository yang baru dibuat
-5. Zeabur akan auto-detect Node.js dan deploy
-
-### 3. Environment Variables di Zeabur
-Set environment variables berikut di Zeabur dashboard:
-
-```
-PORT=3001
-NODE_ENV=production
-JWT_SECRET=your-super-secret-jwt-key
-FRONTEND_URL=https://your-frontend-domain.com
-```
 
 ## 📡 Fitur Socket.IO Server
 
