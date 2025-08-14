@@ -14,7 +14,7 @@ class ZeaburSocketIOServer {
     this.server = createServer(this.app);
     this.port = process.env.PORT || 8080;
     this.jwtSecret = process.env.JWT_SECRET || 'hafiportrait-secret-key';
-    
+
     // Initialize Socket.IO with CORS configuration
     this.io = new Server(this.server, {
       cors: {
@@ -23,7 +23,9 @@ class ZeaburSocketIOServer {
           "https://hafiportrait.vercel.app",
           "https://hafiportrait.photography",
           "https://*.vercel.app",
-          process.env.FRONTEND_URL
+          "https://*.zeabur.app",
+          process.env.FRONTEND_URL,
+          process.env.FRONTEND_URL_SECONDARY
         ].filter(Boolean),
         methods: ["GET", "POST"],
         credentials: true
@@ -36,7 +38,7 @@ class ZeaburSocketIOServer {
     this.connectedClients = new Map();
     this.eventRooms = new Map();
     this.adminSockets = new Set();
-    
+
     this.setupMiddleware();
     this.setupRoutes();
     this.setupSocketHandlers();
@@ -44,7 +46,7 @@ class ZeaburSocketIOServer {
 
   setupMiddleware() {
     this.app.use(express.json());
-    
+
     // Health check endpoint
     this.app.get('/health', (req, res) => {
       res.json({
@@ -75,7 +77,7 @@ class ZeaburSocketIOServer {
     this.app.post('/api/notify', (req, res) => {
       try {
         const { eventId, type, data, adminOnly = false } = req.body;
-        
+
         if (adminOnly) {
           this.notifyAdmins(type, data);
         } else if (eventId) {
@@ -83,7 +85,7 @@ class ZeaburSocketIOServer {
         } else {
           this.notifyAll(type, data);
         }
-        
+
         res.json({ success: true, message: 'Notification sent' });
       } catch (error) {
         console.error('Notification error:', error);
@@ -102,7 +104,7 @@ class ZeaburSocketIOServer {
         adminConnections: this.adminSockets.size,
         uptime: process.uptime()
       };
-      
+
       res.json(stats);
     });
   }
@@ -111,7 +113,7 @@ class ZeaburSocketIOServer {
     // Authentication middleware
     this.io.use((socket, next) => {
       const token = socket.handshake.auth.token || socket.handshake.query.token;
-      
+
       if (token) {
         try {
           const decoded = jwt.verify(token, this.jwtSecret);
@@ -121,13 +123,13 @@ class ZeaburSocketIOServer {
           console.log('Invalid token, continuing as guest:', error.message);
         }
       }
-      
+
       next();
     });
 
     this.io.on('connection', (socket) => {
       console.log(`Client connected: ${socket.id} (User: ${socket.userId || 'guest'})`);
-      
+
       // Store client info
       this.connectedClients.set(socket.id, {
         userId: socket.userId,
@@ -146,16 +148,16 @@ class ZeaburSocketIOServer {
       // Join event room
       socket.on('join-event', (eventId) => {
         if (!eventId) return;
-        
+
         socket.join(`event-${eventId}`);
-        
+
         if (!this.eventRooms.has(eventId)) {
           this.eventRooms.set(eventId, new Set());
         }
         this.eventRooms.get(eventId).add(socket.id);
-        
+
         console.log(`Client ${socket.id} joined event ${eventId}`);
-        
+
         // Notify others in the event
         socket.to(`event-${eventId}`).emit('user-joined', {
           socketId: socket.id,
@@ -167,18 +169,18 @@ class ZeaburSocketIOServer {
       // Leave event room
       socket.on('leave-event', (eventId) => {
         if (!eventId) return;
-        
+
         socket.leave(`event-${eventId}`);
-        
+
         if (this.eventRooms.has(eventId)) {
           this.eventRooms.get(eventId).delete(socket.id);
           if (this.eventRooms.get(eventId).size === 0) {
             this.eventRooms.delete(eventId);
           }
         }
-        
+
         console.log(`Client ${socket.id} left event ${eventId}`);
-        
+
         // Notify others in the event
         socket.to(`event-${eventId}`).emit('user-left', {
           socketId: socket.id,
@@ -195,7 +197,7 @@ class ZeaburSocketIOServer {
             ...photoData,
             timestamp: new Date().toISOString()
           });
-          
+
           // Notify admins
           this.notifyAdmins('photo-uploaded', {
             eventId,
@@ -239,10 +241,10 @@ class ZeaburSocketIOServer {
       // Handle disconnect
       socket.on('disconnect', (reason) => {
         console.log(`Client disconnected: ${socket.id} (Reason: ${reason})`);
-        
+
         // Remove from admin sockets
         this.adminSockets.delete(socket.id);
-        
+
         // Remove from event rooms
         for (const [eventId, clients] of this.eventRooms.entries()) {
           if (clients.has(socket.id)) {
@@ -250,7 +252,7 @@ class ZeaburSocketIOServer {
             if (clients.size === 0) {
               this.eventRooms.delete(eventId);
             }
-            
+
             // Notify others in the event
             socket.to(`event-${eventId}`).emit('user-left', {
               socketId: socket.id,
@@ -259,7 +261,7 @@ class ZeaburSocketIOServer {
             });
           }
         }
-        
+
         // Remove from connected clients
         this.connectedClients.delete(socket.id);
       });
@@ -298,10 +300,19 @@ class ZeaburSocketIOServer {
 
   start() {
     this.server.listen(this.port, '0.0.0.0', () => {
+      const environment = process.env.NODE_ENV || 'production';
+      const isProduction = environment === 'production';
+      const baseUrl = isProduction ? 'https://socket-server.zeabur.app' : `http://localhost:${this.port}`;
+
       console.log(`🚀 HafiPortrait Socket.IO Server running on port ${this.port}`);
-      console.log(`📡 Environment: ${process.env.NODE_ENV || 'production'}`);
-      console.log(`🔗 Health check: http://localhost:${this.port}/health`);
-      console.log(`📊 Status: http://localhost:${this.port}/status`);
+      console.log(`📡 Environment: ${environment}`);
+      console.log(`🔗 Health check: ${baseUrl}/health`);
+      console.log(`📊 Status: ${baseUrl}/status`);
+      console.log(`🌐 Public URL: ${baseUrl}`);
+
+      if (!isProduction) {
+        console.log(`⚠️  Set NODE_ENV=production in Zeabur environment variables`);
+      }
     });
 
     // Graceful shutdown
