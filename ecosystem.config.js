@@ -15,7 +15,7 @@ module.exports = {
       
       // Environment
       env: {
-        NODE_ENV: 'development',
+        NODE_ENV: 'production',
         PORT: 8080
       },
       env_production: {
@@ -83,7 +83,7 @@ module.exports = {
   deploy: {
     production: {
       user: 'node',
-      host: 'wbs.zeabur.app',
+      host: 'socket-server.zeabur.app',
       ref: 'origin/main',
       repo: 'git@github.com:username/hafiportrait-socketio.git',
       path: '/var/www/production',
